@@ -7,7 +7,7 @@ Creates three sensors:
 """
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
@@ -91,6 +91,7 @@ class StormAlertLevelSensor(StormWatchSensorBase):
             icon="mdi:weather-lightning-rainy",
         )
         self._attr_options = ALERT_LEVELS
+        self._attr_device_class = SensorDeviceClass.ENUM
 
     @property
     def extra_state_attributes(self) -> dict:

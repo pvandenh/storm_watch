@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Storm Watch Setup",
+        "description": "Select your weather forecast entities and configure alert thresholds. You will need one hourly and one daily forecast entity — these are provided by your weather integration (e.g. BOM).",
+        "data": {
+          "hourly_weather_entity": "Hourly forecast entity",
+          "daily_weather_entity": "Daily forecast entity",
+          "scan_interval": "Update interval (minutes)",
+          "wind_speed_emergency": "Emergency wind speed threshold (km/h)",
+          "wind_speed_warning": "Warning wind speed threshold (km/h)",
+          "precipitation_emergency": "Emergency precipitation threshold (mm)"
+        },
+        "data_description": {
+          "hourly_weather_entity": "Used for near-term storm detection (1–12 hour windows). Choose the entity that provides hourly forecasts.",
+          "daily_weather_entity": "Used to check for storm conditions tomorrow. Choose the entity that provides daily forecasts.",
+          "scan_interval": "How often Storm Watch fetches fresh forecast data. Lower values use more resources.",
+          "wind_speed_emergency": "Wind speeds above this value within 1 hour trigger an Emergency alert.",
+          "wind_speed_warning": "Wind speeds above this value within 3 hours trigger a Warning alert.",
+          "precipitation_emergency": "Precipitation above this value within 1 hour contributes to an Emergency alert."
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "This weather entity could not be found. Make sure your weather integration is set up and loaded."
+    },
+    "abort": {
+      "already_configured": "Storm Watch is already configured with these weather entities."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Storm Watch Options",
+        "description": "Adjust alert thresholds and update frequency. Changes take effect immediately.",
+        "data": {
+          "scan_interval": "Update interval (minutes)",
+          "wind_speed_emergency": "Emergency wind speed threshold (km/h)",
+          "wind_speed_warning": "Warning wind speed threshold (km/h)",
+          "precipitation_emergency": "Emergency precipitation threshold (mm)"
+        },
+        "data_description": {
+          "scan_interval": "How often Storm Watch fetches fresh forecast data.",
+          "wind_speed_emergency": "Wind speeds above this value within 1 hour trigger an Emergency alert.",
+          "wind_speed_warning": "Wind speeds above this value within 3 hours trigger a Warning alert.",
+          "precipitation_emergency": "Precipitation above this value within 1 hour contributes to an Emergency alert."
+        }
+      }
+    }
+  }
+}

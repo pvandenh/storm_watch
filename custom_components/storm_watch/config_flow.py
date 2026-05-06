@@ -10,7 +10,7 @@ from homeassistant.components.weather import DOMAIN as WEATHER_DOMAIN
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import entity_registry as er, selector
 import homeassistant.helpers.config_validation as cv
 
 from .const import (
@@ -87,12 +87,24 @@ class StormWatchConfigFlow(ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_HOURLY_ENTITY, default=default_hourly): vol.In(weather_entities) if weather_entities else cv.string,
-                vol.Required(CONF_DAILY_ENTITY,  default=default_daily):  vol.In(weather_entities) if weather_entities else cv.string,
-                vol.Optional(CONF_SCAN_INTERVAL,    default=DEFAULT_SCAN_INTERVAL):    vol.All(int, vol.Range(min=5, max=120)),
-                vol.Optional(CONF_WIND_EMERGENCY,   default=DEFAULT_WIND_EMERGENCY):   vol.All(vol.Coerce(float), vol.Range(min=0)),
-                vol.Optional(CONF_WIND_WARNING,     default=DEFAULT_WIND_WARNING):     vol.All(vol.Coerce(float), vol.Range(min=0)),
-                vol.Optional(CONF_PRECIP_EMERGENCY, default=DEFAULT_PRECIP_EMERGENCY): vol.All(vol.Coerce(float), vol.Range(min=0)),
+                vol.Required(CONF_HOURLY_ENTITY, default=default_hourly): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="weather", multiple=False)
+                ),
+                vol.Required(CONF_DAILY_ENTITY, default=default_daily): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="weather", multiple=False)
+                ),
+                vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=5, max=120, step=1, mode=selector.NumberSelectorMode.SLIDER)
+                ),
+                vol.Optional(CONF_WIND_EMERGENCY, default=DEFAULT_WIND_EMERGENCY): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=200, step=1, unit_of_measurement="km/h", mode=selector.NumberSelectorMode.BOX)
+                ),
+                vol.Optional(CONF_WIND_WARNING, default=DEFAULT_WIND_WARNING): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=200, step=1, unit_of_measurement="km/h", mode=selector.NumberSelectorMode.BOX)
+                ),
+                vol.Optional(CONF_PRECIP_EMERGENCY, default=DEFAULT_PRECIP_EMERGENCY): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=100, step=0.5, unit_of_measurement="mm", mode=selector.NumberSelectorMode.BOX)
+                ),
             }
         )
 
@@ -131,19 +143,27 @@ class StormWatchOptionsFlow(OptionsFlow):
                 vol.Optional(
                     CONF_SCAN_INTERVAL,
                     default=current.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
-                ): vol.All(int, vol.Range(min=5, max=120)),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=5, max=120, step=1, mode=selector.NumberSelectorMode.SLIDER)
+                ),
                 vol.Optional(
                     CONF_WIND_EMERGENCY,
                     default=current.get(CONF_WIND_EMERGENCY, DEFAULT_WIND_EMERGENCY),
-                ): vol.All(vol.Coerce(float), vol.Range(min=0)),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=200, step=1, unit_of_measurement="km/h", mode=selector.NumberSelectorMode.BOX)
+                ),
                 vol.Optional(
                     CONF_WIND_WARNING,
                     default=current.get(CONF_WIND_WARNING, DEFAULT_WIND_WARNING),
-                ): vol.All(vol.Coerce(float), vol.Range(min=0)),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=200, step=1, unit_of_measurement="km/h", mode=selector.NumberSelectorMode.BOX)
+                ),
                 vol.Optional(
                     CONF_PRECIP_EMERGENCY,
                     default=current.get(CONF_PRECIP_EMERGENCY, DEFAULT_PRECIP_EMERGENCY),
-                ): vol.All(vol.Coerce(float), vol.Range(min=0)),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(min=0, max=100, step=0.5, unit_of_measurement="mm", mode=selector.NumberSelectorMode.BOX)
+                ),
             }
         )
 
