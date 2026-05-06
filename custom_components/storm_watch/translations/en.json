@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Storm Watch Setup",
-        "description": "Select your weather forecast entities and configure alert thresholds. You will need one hourly and one daily forecast entity — these are provided by your weather integration (e.g. BOM).",
+        "description": "Select your weather forecast entities and configure alert thresholds. You will need one hourly and one daily forecast entity \u2014 these are provided by your weather integration (e.g. BOM).",
         "data": {
           "hourly_weather_entity": "Hourly forecast entity",
           "daily_weather_entity": "Daily forecast entity",
@@ -13,17 +13,19 @@
           "precipitation_emergency": "Emergency precipitation threshold (mm)"
         },
         "data_description": {
-          "hourly_weather_entity": "Used for near-term storm detection (1–12 hour windows). Choose the entity that provides hourly forecasts.",
+          "hourly_weather_entity": "Used for near-term storm detection (1\u201312 hour windows). Choose the entity that provides hourly forecasts.",
           "daily_weather_entity": "Used to check for storm conditions tomorrow. Choose the entity that provides daily forecasts.",
           "scan_interval": "How often Storm Watch fetches fresh forecast data. Lower values use more resources.",
           "wind_speed_emergency": "Wind speeds above this value within 1 hour trigger an Emergency alert.",
           "wind_speed_warning": "Wind speeds above this value within 3 hours trigger a Warning alert.",
-          "precipitation_emergency": "Precipitation above this value within 1 hour contributes to an Emergency alert."
+          "precipitation_emergency": "Precipitation above this value in a single hourly slot contributes to an Emergency alert. BOM reports this as mm (max of the forecast range)."
         }
       }
     },
     "error": {
-      "entity_not_found": "This weather entity could not be found. Make sure your weather integration is set up and loaded."
+      "entity_not_found": "This weather entity could not be found. Make sure your weather integration is set up and loaded.",
+      "no_hourly_support": "This entity does not support hourly forecasts (supported_features must include bit 2). Please select a different entity.",
+      "no_daily_support": "This entity does not support daily forecasts (supported_features must include bit 1). Please select a different entity."
     },
     "abort": {
       "already_configured": "Storm Watch is already configured with these weather entities."
@@ -44,7 +46,7 @@
           "scan_interval": "How often Storm Watch fetches fresh forecast data.",
           "wind_speed_emergency": "Wind speeds above this value within 1 hour trigger an Emergency alert.",
           "wind_speed_warning": "Wind speeds above this value within 3 hours trigger a Warning alert.",
-          "precipitation_emergency": "Precipitation above this value within 1 hour contributes to an Emergency alert."
+          "precipitation_emergency": "Precipitation above this value in a single hourly slot contributes to an Emergency alert. BOM reports this as mm (max of the forecast range)."
         }
       }
     }
