@@ -78,6 +78,8 @@ During setup you select two weather entities and configure alert thresholds. All
 
 > **Note:** A single weather entity that supports both daily and hourly forecasts (e.g. Met.no, `supported_features: 3`) can be used for both fields.
 
+<img width="124" height="317" alt="image" src="https://github.com/user-attachments/assets/c70cd961-1a9b-4e1c-a835-887081f3ef2f" />
+
 ---
 
 ## Supported Weather Integrations
