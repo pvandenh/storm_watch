@@ -23,11 +23,13 @@ from .const import (
     CONF_DAILY_ENTITY,
     CONF_HOURLY_ENTITY,
     CONF_PRECIP_EMERGENCY,
+    CONF_SCAN_INTERVAL,
     CONF_SEVERE_CONDITIONS,
     CONF_STORM_CONDITIONS,
     CONF_WIND_EMERGENCY,
     CONF_WIND_WARNING,
     DEFAULT_PRECIP_EMERGENCY,
+    DEFAULT_SCAN_INTERVAL,
     DEFAULT_SEVERE_CONDITIONS,
     DEFAULT_STORM_CONDITIONS,
     DEFAULT_WIND_EMERGENCY,
@@ -56,15 +58,15 @@ class StormWatchCoordinator(DataUpdateCoordinator):
         self._daily_entity: str  = entry.data[CONF_DAILY_ENTITY]
 
         # Thresholds — fall back to defaults if not in config
-        self._wind_emergency: float = entry.options.get(
+        self._wind_emergency: float = float(entry.options.get(
             CONF_WIND_EMERGENCY, entry.data.get(CONF_WIND_EMERGENCY, DEFAULT_WIND_EMERGENCY)
-        )
-        self._wind_warning: float = entry.options.get(
+        ))
+        self._wind_warning: float = float(entry.options.get(
             CONF_WIND_WARNING, entry.data.get(CONF_WIND_WARNING, DEFAULT_WIND_WARNING)
-        )
-        self._precip_emergency: float = entry.options.get(
+        ))
+        self._precip_emergency: float = float(entry.options.get(
             CONF_PRECIP_EMERGENCY, entry.data.get(CONF_PRECIP_EMERGENCY, DEFAULT_PRECIP_EMERGENCY)
-        )
+        ))
         # Storm/severe condition lists are not exposed in the config flow yet;
         # they always resolve to the defaults defined in const.py.
         self._storm_conditions: list[str] = entry.options.get(
@@ -74,7 +76,7 @@ class StormWatchCoordinator(DataUpdateCoordinator):
             CONF_SEVERE_CONDITIONS, entry.data.get(CONF_SEVERE_CONDITIONS, DEFAULT_SEVERE_CONDITIONS)
         )
 
-        scan_minutes = entry.options.get("scan_interval", entry.data.get("scan_interval", 30))
+        scan_minutes = int(entry.options.get(CONF_SCAN_INTERVAL, entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)))
 
         super().__init__(
             hass,
@@ -191,7 +193,14 @@ class StormWatchCoordinator(DataUpdateCoordinator):
             if slot_dt <= cutoff_12h:
                 if is_storm:
                     h12_storm = True
-                if is_severe:
+                # For the 12 h window, require a threshold breach in addition to
+                # a severe condition code. This prevents ambient "rainy" / "pouring"
+                # slots (which BOM uses for ordinary showers) from raising h12_severe
+                # when there is no meaningful wind or precipitation behind them.
+                if is_severe and (
+                    wind_speed > self._wind_warning
+                    or precip > self._precip_emergency
+                ):
                     h12_severe = True
 
         # ── Scan daily slots (skip today = index 0) ──────────────────────────
@@ -201,11 +210,16 @@ class StormWatchCoordinator(DataUpdateCoordinator):
                 len(daily),
             )
         tomorrow_storm = False
-        for slot in daily[1:]:
+        for slot in daily[1:2]:  # only check tomorrow (index 1), not the whole week
             condition = slot.get("condition", "")
-            if condition in all_severe:
+            # Use all_storm (not all_severe) so that ordinary "rainy" / "pouring"
+            # conditions — which BOM uses for routine showers — do not trigger a
+            # "Storm Tomorrow" alert. The severe-condition set is intentionally
+            # broad for the short hourly windows where wind/precip thresholds act
+            # as a secondary filter, but daily slots carry no such numeric data so
+            # we must restrict to unambiguous storm-class codes here.
+            if condition in all_storm:
                 tomorrow_storm = True
-                break
 
         # ── Determine level ──────────────────────────────────────────────────
         if h1_storm or (h1_wind and h1_rain):

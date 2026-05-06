@@ -17,9 +17,13 @@ CONF_SEVERE_CONDITIONS = "severe_conditions"
 DEFAULT_SCAN_INTERVAL = 30  # minutes
 DEFAULT_WIND_EMERGENCY = 60  # km/h
 DEFAULT_WIND_WARNING = 50    # km/h
-DEFAULT_PRECIP_EMERGENCY = 10  # mm/h
+DEFAULT_PRECIP_EMERGENCY = 10  # mm per forecast slot (not mm/h)
 
-# HA weather condition codes considered storm-class
+# HA weather condition codes considered storm-class.
+# These trigger Watch/Warning/Emergency depending on the time window.
+# BOM mappings that reach these codes:
+#   "storm" / "storms"          → "lightning-rainy"
+#   "cyclone" / "tropical_cyclone" → "exceptional"
 DEFAULT_STORM_CONDITIONS = [
     "lightning",
     "lightning-rainy",
@@ -29,9 +33,18 @@ DEFAULT_STORM_CONDITIONS = [
     "exceptional",
 ]
 
-# HA weather condition codes considered severe (but below storm)
+# HA weather condition codes considered severe (elevated risk, below storm).
+# These trigger Watch/Warning depending on the time window.
+#
+# NOTE: "rainy" is intentionally included here because BOM maps both
+# "heavy_shower" and "heavy_showers" to "rainy" — the same HA code used for
+# light rain. Without this entry, heavy shower forecasts are invisible to
+# Storm Watch's condition checker. The wind speed and precipitation threshold
+# checks act as a secondary filter so ordinary rainy conditions don't
+# unnecessarily escalate to Warning.
 DEFAULT_SEVERE_CONDITIONS = [
     "pouring",
+    "rainy",
     "windy-variant",
     "hurricane",
 ]

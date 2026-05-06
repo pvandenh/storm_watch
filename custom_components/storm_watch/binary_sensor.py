@@ -173,7 +173,7 @@ def _device_info(entry: ConfigEntry) -> DeviceInfo:
         name="Storm Watch",
         manufacturer="Storm Watch",
         model="Storm Alert System",
-        sw_version="1.0.0",
+        sw_version="0.0.1",
     )
 
 

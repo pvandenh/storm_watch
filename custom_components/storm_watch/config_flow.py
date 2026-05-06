@@ -11,21 +11,16 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import entity_registry as er, selector
-import homeassistant.helpers.config_validation as cv
 
 from .const import (
     CONF_DAILY_ENTITY,
     CONF_HOURLY_ENTITY,
     CONF_PRECIP_EMERGENCY,
     CONF_SCAN_INTERVAL,
-    CONF_SEVERE_CONDITIONS,
-    CONF_STORM_CONDITIONS,
     CONF_WIND_EMERGENCY,
     CONF_WIND_WARNING,
     DEFAULT_PRECIP_EMERGENCY,
     DEFAULT_SCAN_INTERVAL,
-    DEFAULT_SEVERE_CONDITIONS,
-    DEFAULT_STORM_CONDITIONS,
     DEFAULT_WIND_EMERGENCY,
     DEFAULT_WIND_WARNING,
     DOMAIN,
@@ -33,20 +28,39 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# HA weather supported_features bitmask values
+_FEATURE_DAILY  = 1
+_FEATURE_HOURLY = 2
+
 
 def _get_weather_entities(hass: HomeAssistant) -> list[str]:
     """Return all weather entity_ids currently registered."""
     registry = er.async_get(hass)
-    return [
-        entity.entity_id
-        for entity in registry.entities.values()
-        if entity.domain == WEATHER_DOMAIN
-    ] or [e.entity_id for e in hass.states.async_all(WEATHER_DOMAIN)]
+    return (
+        [
+            entity.entity_id
+            for entity in registry.entities.values()
+            if entity.domain == WEATHER_DOMAIN
+        ]
+        or [e.entity_id for e in hass.states.async_all(WEATHER_DOMAIN)]
+    )
 
 
-def _weather_selector(hass: HomeAssistant) -> vol.Schema:
-    entities = _get_weather_entities(hass)
-    return vol.In(entities) if entities else cv.string
+def _supports_forecast(hass: HomeAssistant, entity_id: str, feature_bit: int) -> bool:
+    """Return True if the weather entity advertises support for a forecast type.
+
+    HA weather supported_features bitmask:
+      WeatherEntityFeature.FORECAST_DAILY   = 1
+      WeatherEntityFeature.FORECAST_HOURLY  = 2
+    """
+    state = hass.states.get(entity_id)
+    if state is None:
+        return False
+    try:
+        features = int(state.attributes.get("supported_features", 0))
+    except (TypeError, ValueError):
+        return False
+    return bool(features & feature_bit)
 
 
 class StormWatchConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -60,29 +74,39 @@ class StormWatchConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            # Validate that the selected entities actually exist
-            for key in (CONF_HOURLY_ENTITY, CONF_DAILY_ENTITY):
-                entity_id = user_input.get(key, "")
-                if not self.hass.states.get(entity_id):
-                    errors[key] = "entity_not_found"
+            hourly_id = user_input.get(CONF_HOURLY_ENTITY, "")
+            daily_id  = user_input.get(CONF_DAILY_ENTITY, "")
+
+            # Existence check
+            if not self.hass.states.get(hourly_id):
+                errors[CONF_HOURLY_ENTITY] = "entity_not_found"
+            if not self.hass.states.get(daily_id):
+                errors[CONF_DAILY_ENTITY] = "entity_not_found"
+
+            # Feature-support checks (only when entities exist)
+            if not errors:
+                if not _supports_forecast(self.hass, hourly_id, _FEATURE_HOURLY):
+                    errors[CONF_HOURLY_ENTITY] = "no_hourly_support"
+                if not _supports_forecast(self.hass, daily_id, _FEATURE_DAILY):
+                    errors[CONF_DAILY_ENTITY] = "no_daily_support"
 
             if not errors:
-                await self.async_set_unique_id(
-                    f"{user_input[CONF_HOURLY_ENTITY]}_{user_input[CONF_DAILY_ENTITY]}"
-                )
+                await self.async_set_unique_id(f"{hourly_id}_{daily_id}")
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title="Storm Watch",
-                    data=user_input,
-                )
+                return self.async_create_entry(title="Storm Watch", data=user_input)
 
         weather_entities = _get_weather_entities(self.hass)
-        # Try to guess sensible defaults — hourly entity usually has "hourly" in name
+
+        # Pick smarter defaults using feature flags rather than name heuristics
         default_hourly = next(
-            (e for e in weather_entities if "hourly" in e.lower()), ""
+            (e for e in weather_entities if _supports_forecast(self.hass, e, _FEATURE_HOURLY)
+             and not _supports_forecast(self.hass, e, _FEATURE_DAILY)),
+            next((e for e in weather_entities if _supports_forecast(self.hass, e, _FEATURE_HOURLY)), ""),
         )
         default_daily = next(
-            (e for e in weather_entities if "hourly" not in e.lower()), ""
+            (e for e in weather_entities if _supports_forecast(self.hass, e, _FEATURE_DAILY)
+             and not _supports_forecast(self.hass, e, _FEATURE_HOURLY)),
+            next((e for e in weather_entities if _supports_forecast(self.hass, e, _FEATURE_DAILY)), ""),
         )
 
         schema = vol.Schema(
