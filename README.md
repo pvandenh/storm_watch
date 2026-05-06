@@ -1,185 +1,126 @@
 # 🌩️ Storm Watch
 
-**Advanced storm alerting for Home Assistant.**
-
-Storm Watch wraps any Home Assistant weather integration that supports forecast service calls (BOM, Met.no, OpenWeatherMap, etc.) and turns raw forecast data into a tiered alert system — giving you actionable sensors you can use to automate storm preparation before severe weather arrives.
+A custom Home Assistant integration that wraps any standard weather integration (BOM, Met.no, OpenWeatherMap, etc.) and provides tiered storm alerts across multiple time windows — giving you granular sensors and binary sensors to drive automations before severe weather hits.
 
 ---
 
 ## Features
 
-- **Tiered alert levels** — `None` → `Watch` → `Warning` → `Emergency`, computed from hourly and daily forecast data
-- **12 granular sensors** — 3 state sensors and 9 binary sensors covering individual hazard types across 1h, 3h and 12h windows
-- **Configurable thresholds** — set your own wind speed and precipitation limits via the UI, no YAML required
-- **Works with any forecast provider** — BOM, Met.no, OpenWeatherMap, or any integration that exposes `weather.get_forecasts`
-- **Fully UI-configurable** — set up and adjust through Settings → Devices & Services, no `configuration.yaml` edits needed
+- **Four alert levels**: None → Watch → Warning → Emergency
+- **Three time windows**: 1 hour, 3 hours, and 12 hours, plus a tomorrow outlook
+- **Per-hazard binary sensors** for fine-grained automation triggers
+- **Convenience roll-up sensors** for each time window
+- **Configurable thresholds** for wind speed and precipitation
+- **Works with any HA weather integration** that supports `weather.get_forecasts`
+- **Options flow** — update thresholds at any time without re-setup
 
 ---
 
-## How it works
-
-Storm Watch polls your hourly and daily weather forecast entities on a configurable schedule. Each update it scans forecast slots across three time windows and checks for storm-class conditions, dangerous wind speeds, and heavy rainfall. The results are exposed as HA sensors your automations can act on immediately.
-
-```
-Hourly forecast ──┐
-                  ├──► Coordinator ──► Alert Level sensor  (None/Watch/Warning/Emergency)
-Daily forecast  ──┘         │
-                            ├──► Window sensor       (e.g. "Within 3 hours")
-                            ├──► Detail sensor        (e.g. "Storm/Lightning, High Winds")
-                            └──► 9 × Binary sensors   (per-hazard flags)
-```
-
-### Alert levels
+## Alert Levels
 
 | Level | Meaning |
-|---|---|
-| `None` | No storm risk detected in any window |
-| `Watch` | Storm or severe conditions possible within 12 hours or tomorrow |
-| `Warning` | Storm, high winds, or severe conditions within 3 hours |
-| `Emergency` | Storm conditions or wind + heavy rain within the next hour |
-
----
-
-## Installation
-
-### Via HACS (recommended)
-
-1. In Home Assistant, open **HACS → ⋮ → Custom repositories**
-2. Add the URL of this repository and set the category to **Integration**
-3. Find **Storm Watch** in HACS and click **Download**
-4. Restart Home Assistant
-
-### Manual
-
-Copy the `custom_components/storm_watch/` folder into your HA config directory under `custom_components/`, then restart Home Assistant.
-
----
-
-## Setup
-
-1. Go to **Settings → Devices & Services → Add Integration**
-2. Search for **Storm Watch**
-3. Select your hourly and daily weather forecast entities
-4. Configure your alert thresholds (or leave the defaults)
-
-> **BOM users:** your entities will typically be named `weather.xxx_hourly` and `weather.forecast_home` (or similar). Both will appear in the entity picker automatically.
+|-----------|-------------------------------------------------------------------------|
+| `None` | No storm conditions detected |
+| `Watch` | Storm-class or severe conditions possible within 12 hours or tomorrow |
+| `Warning` | Storm-class or high winds detected within 3 hours |
+| `Emergency` | Storm conditions or combined wind + heavy rain within 1 hour |
 
 ---
 
 ## Sensors
 
-### State sensors
+### Main Sensors
 
-| Entity | Description | Example state |
-|---|---|---|
-| `sensor.storm_watch_alert_level` | Primary tiered alert level | `Warning` |
-| `sensor.storm_watch_alert_window` | Earliest window with detected risk | `Within 3 hours` |
-| `sensor.storm_watch_alert_detail` | Human-readable hazard summary | `Storm/Lightning, High Winds` |
+| Entity | Description |
+|--------------------------------------|----------------------------------------------|
+| `sensor.storm_watch_alert_level` | Current alert level (None/Watch/Warning/Emergency) |
+| `sensor.storm_watch_alert_window` | Earliest time window with detected risk |
+| `sensor.storm_watch_alert_detail` | Human-readable summary of active hazards |
 
-The **Alert Level** sensor also exposes all hazard flags and configured thresholds as attributes, making it easy to build detailed Lovelace cards.
+The alert level sensor also exposes all hazard flags, configured thresholds, and the detail/window as attributes.
 
-### Binary sensors
+### Binary Sensors — Per Hazard
 
-| Entity | On when… |
-|---|---|
-| `binary_sensor.storm_watch_h1_storm` | Storm condition forecast within 1 hour |
-| `binary_sensor.storm_watch_h1_wind` | Emergency wind speed within 1 hour |
-| `binary_sensor.storm_watch_h1_rain` | Emergency precipitation within 1 hour |
-| `binary_sensor.storm_watch_h3_storm` | Storm condition within 3 hours |
-| `binary_sensor.storm_watch_h3_wind` | Warning-level wind within 3 hours |
-| `binary_sensor.storm_watch_h3_severe` | Severe weather within 3 hours |
-| `binary_sensor.storm_watch_h12_storm` | Storm condition within 12 hours |
-| `binary_sensor.storm_watch_h12_severe` | Severe weather within 12 hours |
-| `binary_sensor.storm_watch_tomorrow` | Storm forecast in tomorrow's daily data |
-| `binary_sensor.storm_watch_any_1h` | Any emergency-class risk within 1 hour |
-| `binary_sensor.storm_watch_any_3h` | Any warning-class risk within 3 hours |
-| `binary_sensor.storm_watch_any_12h` | Any watch-class risk within 12 hours |
+| Entity | On when... |
+|--------------------------------------------------|--------------------------------------|
+| `binary_sensor.storm_watch_storm_within_1_hour` | Storm condition code in next 1 hour |
+| `binary_sensor.storm_watch_emergency_wind_within_1_hour` | Wind > emergency threshold in next 1 hour |
+| `binary_sensor.storm_watch_heavy_rain_within_1_hour` | Precipitation > emergency threshold in next 1 hour |
+| `binary_sensor.storm_watch_storm_within_3_hours` | Storm condition code in next 3 hours |
+| `binary_sensor.storm_watch_high_winds_within_3_hours` | Wind > warning threshold in next 3 hours |
+| `binary_sensor.storm_watch_severe_weather_within_3_hours` | Severe condition code in next 3 hours |
+| `binary_sensor.storm_watch_storm_within_12_hours` | Storm condition code in next 12 hours |
+| `binary_sensor.storm_watch_severe_weather_within_12_hours` | Severe condition + threshold breach in next 12 hours |
+| `binary_sensor.storm_watch_storm_forecast_tomorrow` | Storm-class condition code forecast for tomorrow |
+
+### Binary Sensors — Convenience Roll-ups
+
+| Entity | On when... |
+|----------------------------------------------------|--------------------------------------------|
+| `binary_sensor.storm_watch_any_storm_risk_within_1_hour` | Any 1-hour hazard is active |
+| `binary_sensor.storm_watch_any_storm_risk_within_3_hours` | Any 3-hour hazard is active |
+| `binary_sensor.storm_watch_any_storm_risk_within_12_hours` | Any 12-hour or tomorrow hazard is active |
 
 ---
 
-## Configuration options
+## Configuration
 
-These can be changed at any time via **Settings → Devices & Services → Storm Watch → Configure** without reinstalling.
+During setup you select two weather entities and configure alert thresholds. All thresholds can be updated later via **Settings → Integrations → Storm Watch → Configure**.
 
-| Option | Default | Description |
-|---|---|---|
+| Setting | Default | Description |
+|-------------------------------|---------|--------------------------------------------------|
+| Hourly forecast entity | — | Weather entity with hourly forecast support |
+| Daily forecast entity | — | Weather entity with daily forecast support |
 | Update interval | 30 min | How often forecasts are fetched |
-| Emergency wind speed | 60 km/h | Wind threshold for Emergency alerts |
-| Warning wind speed | 50 km/h | Wind threshold for Warning alerts |
-| Emergency precipitation | 10 mm | Rain threshold contributing to Emergency alerts |
+| Emergency wind speed | 60 km/h | Triggers wind hazard flags in the 1-hour window |
+| Warning wind speed | 50 km/h | Triggers wind hazard flags in the 3-hour window |
+| Emergency precipitation | 10 mm | Triggers rain hazard flag in the 1-hour window |
+
+> **Note:** A single weather entity that supports both daily and hourly forecasts (e.g. Met.no, `supported_features: 3`) can be used for both fields.
 
 ---
 
-## Automation examples
+## Supported Weather Integrations
 
-**Close the skylights when a storm is imminent:**
-```yaml
-trigger:
-  - platform: state
-    entity_id: binary_sensor.storm_watch_any_1h
-    to: "on"
-action:
-  - service: cover.close_cover
-    target:
-      entity_id: cover.skylights
-```
+Any integration that implements the standard `weather.get_forecasts` service call works with Storm Watch. Tested with:
 
-**Send a notification when a Watch is issued:**
-```yaml
-trigger:
-  - platform: state
-    entity_id: sensor.storm_watch_alert_level
-    to: "Watch"
-action:
-  - service: notify.mobile_app
-    data:
-      title: "Storm Watch ⚠️"
-      message: "Storm conditions possible {{ states('sensor.storm_watch_alert_window') | lower }}. {{ states('sensor.storm_watch_alert_detail') }}."
-```
+| Integration | Notes |
+|---|---|
+| **BOM** (Bureau of Meteorology) | Use the hourly entity for hourly and the daily entity for daily |
+| **Met.no** (Meteorologisk institutt) | Single entity supports both hourly and daily |
+| **OpenWeatherMap** | Hourly and daily entities configured separately |
 
-**Push an emergency alert for imminent storms:**
-```yaml
-trigger:
-  - platform: state
-    entity_id: sensor.storm_watch_alert_level
-    to: "Emergency"
-action:
-  - service: notify.mobile_app
-    data:
-      title: "🚨 Storm Emergency"
-      message: "{{ states('sensor.storm_watch_alert_detail') }} detected within the next hour. Take action now."
-```
+### Weather Condition Codes
 
----
+Storm Watch uses two tiers of HA standard condition codes internally:
 
-## Storm and severe conditions
-
-Storm Watch classifies HA weather condition codes into two tiers:
-
-**Storm-class** (highest severity — triggers Watch/Warning/Emergency):
+**Storm-class** (trigger Watch/Warning/Emergency depending on window):
 `lightning`, `lightning-rainy`, `thunderstorm`, `hail`, `tornado`, `exceptional`
 
-**Severe-class** (elevated severity — triggers Watch/Warning):
-`pouring`, `windy-variant`, `hurricane`
+**Severe-class** (trigger Watch/Warning in shorter windows, require threshold confirmation at 12 h):
+`pouring`, `rainy`, `windy-variant`, `hurricane`
 
-These lists are built-in for now. Custom condition lists are planned for a future release.
+---
+
+## Installation
+
+1. Open HACS in the Home Assistant sidebar.
+2. Click the ⋮ menu → Custom repositories.
+3. Add repository: https://github.com/pvandenh/storm_watch, category: Integration.
+2. Restart Home Assistant.
+3. Go to **Settings → Devices and Services → Add Integration** and search for **Storm Watch**.
+4. Select your hourly and daily forecast entities and set your thresholds.
 
 ---
 
 ## Requirements
 
-- Home Assistant 2024.1.0 or newer
-- At least one weather integration that supports `weather.get_forecasts` with hourly forecasts
-- A separate daily forecast entity is recommended for tomorrow storm detection but not strictly required
+- Home Assistant with at least one weather integration that supports `weather.get_forecasts`
+- No additional Python packages required
 
 ---
 
-## Contributing
+## Links
 
-Bug reports and pull requests are welcome. Please open an issue first for any significant changes.
-
----
-
-## License
-
-MIT
+- [Documentation](https://github.com/pvandenh/storm_watch)
+- [Issue Tracker](https://github.com/pvandenh/storm_watch/issues)
